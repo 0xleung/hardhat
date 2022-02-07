@@ -135,19 +135,24 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
     retryNumber = 0
   ): Promise<JsonRpcResponse | JsonRpcResponse[]> {
     try {
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(
+        () => abortController.abort(),
+        process.env.DO_NOT_SET_THIS_ENV_VAR____IS_HARDHAT_CI !== undefined
+          ? 0
+          : this._timeout // TODO: determine whether this is the right unit (s/ms)
+      );
       const response = await fetch(this._url, {
         method: "POST",
         body: JSON.stringify(request),
         redirect: "follow",
-        timeout:
-          process.env.DO_NOT_SET_THIS_ENV_VAR____IS_HARDHAT_CI !== undefined
-            ? 0
-            : this._timeout,
         headers: {
           "Content-Type": "application/json",
           ...this._extraHeaders,
         },
+        signal: abortController.signal,
       });
+      clearTimeout(timeoutId);
 
       if (this._isRateLimitResponse(response)) {
         // Consume the response stream and discard its result
